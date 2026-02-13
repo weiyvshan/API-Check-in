@@ -3,6 +3,7 @@
  * Linux.do 帖子浏览脚本
  * 使用 Playwright 登录 Linux.do 并浏览帖子
  *
+ * name: Linux.do 帖子浏览
  * cron: 0 9 * * *
  */
 
