@@ -339,9 +339,12 @@ class LinuxDoReadPosts {
 		const baseTopicIdStr = process.env.LINUXDO_BASE_TOPIC_ID || '';
 		const baseTopicId = baseTopicIdStr ? parseInt(baseTopicIdStr, 10) : DEFAULT_BASE_TOPIC_ID;
 
+		// 使用系统 chromium（青龙面板已安装）
+		const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH || '/usr/bin/chromium';
 		const browser = await chromium.launch({
 			headless: process.env.HEADLESS !== 'false',
 			args: ['--no-sandbox', '--disable-setuid-sandbox'],
+			executablePath,
 		});
 
 		try {
