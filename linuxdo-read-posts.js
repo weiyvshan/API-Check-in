@@ -396,7 +396,9 @@ class LinuxDoReadPosts {
 
 /**
  * 解析青龙面板管道格式的账号配置
- * 格式: provider|api_user|cookies|github_user|github_pass|linuxdo_user|linuxdo_pass
+ * 支持两种格式:
+ *   - 简化格式: username|password
+ *   - 完整格式: provider|api_user|cookies|github_user|github_pass|linuxdo_user|linuxdo_pass
  * @param {string} accountsStr - 账号配置字符串
  * @returns {Array<{username: string, password: string}>} Linux.do 账号列表
  */
@@ -409,24 +411,29 @@ function parsePipeAccounts(accountsStr) {
 		const trimmed = line.trim();
 		if (trimmed && !trimmed.startsWith('#')) {
 			const parts = trimmed.split('|');
-			// 格式: provider|api_user|cookies|github_user|github_pass|linuxdo_user|linuxdo_pass
-			// 索引:    0       1         2          3            4            5             6
-			if (parts.length >= 7) {
-				const linuxdoUser = parts[5]?.trim();
-				const linuxdoPass = parts[6]?.trim();
 
-				if (linuxdoUser && linuxdoPass) {
-					// 去重
-					if (seenUsernames.has(linuxdoUser)) {
-						console.log(`ℹ️ Skipping duplicate Linux.do account: ${maskUsername(linuxdoUser)}`);
-						continue;
-					}
-					seenUsernames.add(linuxdoUser);
-					accounts.push({
-						username: linuxdoUser,
-						password: linuxdoPass,
-					});
+			let username = '';
+			let password = '';
+
+			if (parts.length === 2) {
+				// 简化格式: username|password
+				username = parts[0]?.trim();
+				password = parts[1]?.trim();
+			} else if (parts.length >= 7) {
+				// 完整格式: provider|api_user|cookies|github_user|github_pass|linuxdo_user|linuxdo_pass
+				// 索引:       0       1         2          3            4            5             6
+				username = parts[5]?.trim();
+				password = parts[6]?.trim();
+			}
+
+			if (username && password) {
+				// 去重
+				if (seenUsernames.has(username)) {
+					console.log(`ℹ️ Skipping duplicate Linux.do account: ${maskUsername(username)}`);
+					continue;
 				}
+				seenUsernames.add(username);
+				accounts.push({ username, password });
 			}
 		}
 	}
