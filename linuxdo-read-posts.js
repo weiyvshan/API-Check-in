@@ -10,6 +10,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 import { chromium } from 'playwright';
 import { maskUsername } from './utils/mask-utils.js';
 import { takeScreenshot, savePageContentToFile } from './utils/browser-utils.js';
@@ -42,7 +43,6 @@ class LinuxDoReadPosts {
 		this.storageStateDir = storageStateDir;
 
 		// 使用用户名哈希生成缓存文件名
-		const crypto = await import('crypto');
 		this.usernameHash = crypto.createHash('sha256').update(username).digest('hex').slice(0, 8);
 
 		// 每个用户独立的 topic_id 缓存文件
