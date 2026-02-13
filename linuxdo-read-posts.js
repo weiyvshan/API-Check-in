@@ -395,21 +395,82 @@ class LinuxDoReadPosts {
 }
 
 /**
- * 从 ACCOUNTS 环境变量加载 Linux.do 账号
+ * 解析青龙面板管道格式的账号配置
+ * 格式: provider|api_user|cookies|github_user|github_pass|linuxdo_user|linuxdo_pass
+ * @param {string} accountsStr - 账号配置字符串
+ * @returns {Array<{username: string, password: string}>} Linux.do 账号列表
+ */
+function parsePipeAccounts(accountsStr) {
+	const accounts = [];
+	const seenUsernames = new Set();
+	const lines = accountsStr.split('\n');
+
+	for (const line of lines) {
+		const trimmed = line.trim();
+		if (trimmed && !trimmed.startsWith('#')) {
+			const parts = trimmed.split('|');
+			// 格式: provider|api_user|cookies|github_user|github_pass|linuxdo_user|linuxdo_pass
+			// 索引:    0       1         2          3            4            5             6
+			if (parts.length >= 7) {
+				const linuxdoUser = parts[5]?.trim();
+				const linuxdoPass = parts[6]?.trim();
+
+				if (linuxdoUser && linuxdoPass) {
+					// 去重
+					if (seenUsernames.has(linuxdoUser)) {
+						console.log(`ℹ️ Skipping duplicate Linux.do account: ${maskUsername(linuxdoUser)}`);
+						continue;
+					}
+					seenUsernames.add(linuxdoUser);
+					accounts.push({
+						username: linuxdoUser,
+						password: linuxdoPass,
+					});
+				}
+			}
+		}
+	}
+	return accounts;
+}
+
+/**
+ * 从环境变量加载 Linux.do 账号
+ * 只使用 ACCOUNTS_LINUX_DO，支持管道格式和 JSON 格式
+ *
  * @returns {Array<{username: string, password: string}>}
  */
 function loadLinuxdoAccounts() {
-	const accountsStr = process.env.ACCOUNTS;
-	if (!accountsStr) {
-		console.log('❌ ACCOUNTS environment variable not found');
+	const linuxDoAccountsStr = process.env.ACCOUNTS_LINUX_DO;
+
+	if (!linuxDoAccountsStr) {
+		console.log('❌ ACCOUNTS_LINUX_DO environment variable not found');
+		console.log('');
+		console.log('💡 请在青龙面板中创建环境变量:');
+		console.log('   变量名: ACCOUNTS_LINUX_DO');
+		console.log('');
+		console.log('💡 支持两种格式:');
+		console.log('');
+		console.log('   1) 管道格式（推荐）:');
+		console.log('      anyrouter|12345|session=xxx|||your_username|your_password');
+		console.log('');
+		console.log('   2) JSON格式:');
+		console.log('      [{"username":"your_user","password":"your_pass"}]');
 		return [];
 	}
 
+	// 首先尝试管道格式（青龙面板推荐）
+	const pipeAccounts = parsePipeAccounts(linuxDoAccountsStr);
+	if (pipeAccounts.length > 0) {
+		console.log(`ℹ️ Loaded ${pipeAccounts.length} account(s) from ACCOUNTS_LINUX_DO (pipe format)`);
+		return pipeAccounts;
+	}
+
+	// 管道格式解析失败，尝试 JSON 格式
 	try {
-		const accountsData = JSON.parse(accountsStr);
+		const accountsData = JSON.parse(linuxDoAccountsStr);
 
 		if (!Array.isArray(accountsData)) {
-			console.log('❌ ACCOUNTS must be a JSON array');
+			console.log('❌ ACCOUNTS_LINUX_DO must be a JSON array or pipe format');
 			return [];
 		}
 
@@ -419,22 +480,21 @@ function loadLinuxdoAccounts() {
 		for (let i = 0; i < accountsData.length; i++) {
 			const account = accountsData[i];
 			if (typeof account !== 'object' || account === null) {
-				console.log(`⚠️ ACCOUNTS[${i}] must be a dictionary, skipping`);
+				console.log(`⚠️ ACCOUNTS_LINUX_DO[${i}] must be a dictionary, skipping`);
 				continue;
 			}
 
 			const username = account.username;
-			const maskedUsername = maskUsername(username);
 			const password = account.password;
 
 			if (!username || !password) {
-				console.log(`⚠️ ACCOUNTS[${i}] missing username or password, skipping`);
+				console.log(`⚠️ ACCOUNTS_LINUX_DO[${i}] missing username or password, skipping`);
 				continue;
 			}
 
 			// 根据 username 去重
 			if (seenUsernames.has(username)) {
-				console.log(`ℹ️ Skipping duplicate account: ${maskedUsername}`);
+				console.log(`ℹ️ Skipping duplicate account: ${maskUsername(username)}`);
 				continue;
 			}
 
@@ -442,11 +502,22 @@ function loadLinuxdoAccounts() {
 			linuxdoAccounts.push({ username, password });
 		}
 
-		return linuxdoAccounts;
+		if (linuxdoAccounts.length > 0) {
+			console.log(`ℹ️ Loaded ${linuxdoAccounts.length} account(s) from ACCOUNTS_LINUX_DO (JSON format)`);
+			return linuxdoAccounts;
+		}
 	} catch (e) {
-		console.log(`❌ Failed to parse ACCOUNTS: ${e.message}`);
-		return [];
+		console.log(`⚠️ Failed to parse ACCOUNTS_LINUX_DO: ${e.message}`);
 	}
+
+	console.log('❌ No Linux.do accounts found in ACCOUNTS_LINUX_DO');
+	console.log('');
+	console.log('💡 管道格式示例:');
+	console.log('   anyrouter|12345|session=xxx|||myuser|mypass');
+	console.log('');
+	console.log('💡 JSON格式示例:');
+	console.log('   [{"username":"myuser","password":"mypass"}]');
+	return [];
 }
 
 /**
