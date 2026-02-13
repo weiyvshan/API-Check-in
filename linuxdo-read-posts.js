@@ -341,11 +341,21 @@ class LinuxDoReadPosts {
 
 		// 使用系统 chromium（青龙面板已安装）
 		const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH || '/usr/bin/chromium';
-		const browser = await chromium.launch({
+		
+		// 代理配置
+		const proxy = process.env.PROXY || '';
+		const launchOptions = {
 			headless: process.env.HEADLESS !== 'false',
 			args: ['--no-sandbox', '--disable-setuid-sandbox'],
 			executablePath,
-		});
+		};
+		
+		if (proxy) {
+			console.log(`ℹ️ ${this.maskedUsername}: Using proxy: ${proxy}`);
+			launchOptions.proxy = { server: proxy };
+		}
+		
+		const browser = await chromium.launch(launchOptions);
 
 		try {
 			// 加载缓存的 storage state（如果存在）
